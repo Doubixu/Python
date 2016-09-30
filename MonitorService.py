@@ -10,31 +10,20 @@ from email.mime.text import MIMEText
 
 
 def get_stop_service(designation):
-    """Get stopped service name and caption,
-    Filtration 'designation' service whether there is 'Stopped'.
-
-    :return: service state
+    """To obtain a list of running the service name,
+    check whether the monitoring server is present in the list.
     """
-    c = wmi.WMI()
-    ret = dict()
-    for service in c.Win32_Service():
-        state, caption = service.State, service.Caption
-        if state == 'Stopped':
-            t = ret.get(state, [])
-            t.append(caption)
-            ret[state] = t
-    # If 'designation' service in the 'Stopped', return status is 'down'
-    if designation in ret.get('Stopped'):
+    lines = os.popen('net start').readlines()
+    line = [item.strip() for item in [i for i in lines]]
+    if designation in line:
+        return True
+    else:
         logging.error('Service [%s] is down, try to restart the service. \r\n' % designation)
-        return 'down'
-    return True
-
+        return False
 
 def monitor(sname):
     """Send the machine IP port 20000 socket request,
-    If capture the abnormal returns the string 'ex'.
-
-    :return: string 'ex'
+    If capture the abnormal returns false.
     """
     s = socket.socket()
     s.settimeout(3)  # timeout
@@ -43,7 +32,7 @@ def monitor(sname):
         s.connect(host)
     except socket.error as e:
         logging.warning('[%s] service connection failed: %s \r\n' % (sname, e))
-        return 'ex'
+        return False
     return True
 
 
@@ -52,18 +41,16 @@ def restart_service(rstname, conn, run):
     if stop, start the service directly.
     The check whether the zombies,
     if a zombie, then restart the service.
-
-    :return: flag or True
     """
     flag = False
     try:
         # From get_stop_service() to obtain the return value, the return value
-        if run == 'down':
+        if not run:
             ret = os.system('sc start "%s"' % rstname)
             if ret != 0:
                 raise Exception('[Errno %s]' % ret)
             flag = True
-        elif conn == 'ex':
+        elif not conn:
             retStop = os.system('sc stop "%s"' % rstname)
             retSart = os.system('sc start "%s"' % rstname)
             if retSart != 0:
@@ -79,9 +66,8 @@ def restart_service(rstname, conn, run):
 
 
 def send_mail(to_list, sub, contents):
-    """Send alarm mail.
-
-    :return: flag
+    """
+    Send alarm mail.
     """
     mail_server = 'mail.stmp.com'  # STMP Server
     mail_user = 'YouAccount'  # Mail account
@@ -112,17 +98,15 @@ def send_mail(to_list, sub, contents):
 def main(sname):
     """Parameter type in the name of the service need to monitor,
     perform functions defined in turn, and the return value is correct.
-    After the program is running, will test three times,
+    After the program is running, will test two times,
     each time interval to 10 seconds.
-
-    :return: retValue
     """
-    retry = 3
+    retry = 2
     count = 0
     retValue = False  # Used return to the state of the socket
     while count < retry:
         ret = monitor(sname)
-        if ret != 'ex':  # If socket connection is normaol, return retValue
+        if not ret:  # If socket connection is normaol, return retValue
             retValue = ret
             return retValue
         isDown = get_stop_service(sname)
@@ -131,7 +115,7 @@ def main(sname):
         host = socket.gethostname()
         address = socket.gethostbyname(host)
         mailto_list = ['mail@smtp.com', ]  # Alarm contacts
-        send_mail(mailto_list, 
+        send_mail(mailto_list,
                   'Alarm',
                   ' <h4>Level: <u>ERROR</u></br> Host name: %s</br>'
                   ' IP Address: %s</br>'
