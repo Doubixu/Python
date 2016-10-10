@@ -10,57 +10,60 @@ def getaddresslist(addr):
     getaddresslist(addr) -> IP address file
 
     IP address read from the file.
-    :param addr: IP file
-    :return: Scan ip address list, or error message.
     """
-    address = []
     try:
         with open(addr, "r") as iplist:
             line = iplist.readlines()
-            for item in line:
-                address.append(item.strip("\n"))
+            address = [item.strip("\n") for item in line]
         return address
+    except (IOError, IndexError), err:
+        return str(err)
 
-    except (IOError, IndexError), e:
-        return str(e)
 
-
-def scan(iplist, port=80):
+def scan(iplist, port):
     """
     scan() -> getaddresslist()
 
     getaddresslist() function returns the IP address of the list.
-    :param iplist: getaddresslist() Function return value.
-    :param port: Need to scan the port.
-    :return: None
     """
     if not isinstance(iplist, list):
         sys.exit("Function getaddresslist() return error message: %s" % iplist)
+    # start_time = time.time()
 
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1)
+    f = open('D:\em_logs\scan.log', 'ab')
     for addr in iplist:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(1)
         host = (addr, int(port))
         try:
             s.connect(host)
-            print "Host %s:%s connection success." % (host[0], host[1])
+            f.write("Host %s:%s connection success \r\n" % (host[0], host[1]))
         except Exception, e:
-            print "Host %s:%s connection failure: %s" % (host[0], host[1], e)
+            f.write("Host %s:%s connection failure: %s \r\n" % (host[0], host[1], e))
+    f.close()
+    s.close()
+    # print "Port scanning to complate, Elapsed time: %.2f" % (time.time() - start_time)
 
-        s.close()
+
+def main():
+    """
+    main() -> Program start
+
+    Program entrance,
+    Call the main() function will begin to execute a program.
+    """
+    addrs = sys.argv[1]
+    # scanport = raw_input("Enter the scan port <default is 80 port>: ")
+    isNone = True
+    while isNone:
+        scanport = raw_input('Enter the scan port: ').strip()
+        if scanport:
+            isNone = False
+        else:
+            continue
+    scan(getaddresslist(addrs), scanport)
 
 
 if __name__ == '__main__':
 
-    addrs = sys.argv[1]
-    ScanPort = input("Enter the scan port: ")
-    Total = input("Enter the scan time <minutes>: ")
-    Interval = input("Enter the scanning interval <minutes>: ")
-    EndTime = time.time() + Total * 60
-    
-    while time.time() < EndTime:
-        scan(getaddresslist(addrs), ScanPort)
-        time.sleep(Interval * 60)
-        continue
-    else:
-        print "\nwhile end."
+    main()
