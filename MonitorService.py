@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import wmi
 import time
 import socket
 import smtplib
